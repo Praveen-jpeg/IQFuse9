@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <Button
+            android:id="@+id/btn_number_system"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Number System"
+            android:textSize="18sp"
+            android:padding="16dp" />
+
+        <Button
+            android:id="@+id/btn_gcf_lcm"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="G.C.F and L.C.M"
+            android:textSize="18sp"
+            android:padding="16dp" />
+
+        <Button
+            android:id="@+id/btn_decimal_fractions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Decimal fractions"
+            android:textSize="18sp"
+            android:padding="16dp" />
+
+        <Button
+            android:id="@+id/btn_simplification"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Simplification"
+            android:textSize="18sp"
+            android:padding="16dp" />
+
+        <Button
+            android:id="@+id/btn_square_cube_roots"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Square roots and cube roots"
+            android:textSize="18sp"
+            android:padding="16dp" />
+
+        <Button
+            android:id="@+id/btn_average"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Average"
+            android:textSize="18sp"
+            android:padding="16dp" />
+
+        <Button
+            android:id="@+id/btn_problems_on_numbers"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Problems on numbers"
+            android:textSize="18sp"
+            android:padding="16dp" />
+
+        <Button
+            android:id="@+id/btn_problems_on_ages"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Problems on ages"
+            android:textSize="18sp"
+            android:padding="16dp" />
+
+        <Button
+            android:id="@+id/btn_surs_and_indices"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Surds and indices"
+            android:textSize="18sp"
+            android:padding="16dp" />
+
+        <Button
+            android:id="@+id/btn_logarithms"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Logarithms"
+            android:textSize="18sp"
+            android:padding="16dp" />
+
+    </LinearLayout>
+</ScrollView>
