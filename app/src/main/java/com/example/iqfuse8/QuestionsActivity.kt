@@ -11,8 +11,8 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.iqfuse8.adapter.QuestionsAdapter
 import com.example.iqfuse8.model.Question
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.ktx.Firebase
 import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
 
 class QuestionsActivity : AppCompatActivity() {
 
@@ -25,7 +25,6 @@ class QuestionsActivity : AppCompatActivity() {
     private var topic: String? = null
     private var currentSet = 1
     private val questionsList = mutableListOf<Question>()
-    private val attemptedQuestions = mutableSetOf<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,7 +79,7 @@ class QuestionsActivity : AppCompatActivity() {
 
                     if (document.exists()) {
                         val questionList = document.get("questions") as? List<Map<String, Any>>
-                        Log.d("QuestionsActivity", "Number of Questions ${questionList?.size}")
+                        Log.d("QuestionsActivity", "Number of Questions: ${questionList?.size}")
 
                         if (questionList != null && questionList.isNotEmpty()) {
                             questionsList.clear()
@@ -90,12 +89,13 @@ class QuestionsActivity : AppCompatActivity() {
                                 val answer = questionData["answer"] as? String ?: ""
                                 val explanation = questionData["explanation"] as? String ?: ""
 
-                                // Add question to the list without shuffling
-                                val question = Question(questionText, optionsList, answer, explanation)
-                                questionsList.add(question)
+                                questionsList.add(Question(questionText, optionsList, answer, explanation))
                             }
 
-                            adapter.notifyDataSetChanged()  // Update adapter only when necessary
+                            // Shuffle questions if desired
+                            questionsList.shuffle()
+                            adapter = QuestionsAdapter(questionsList)
+                            recyclerView.adapter = adapter
                         } else {
                             Log.e("QuestionsActivity", "Document found but no questions")
                             Toast.makeText(this, "No questions available in this set", Toast.LENGTH_SHORT).show()

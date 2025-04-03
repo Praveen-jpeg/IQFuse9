@@ -75,7 +75,7 @@ class MainActivity : AppCompatActivity() {
         val headerView = navigationView.getHeaderView(0)
         tvGreeting = headerView.findViewById(R.id.tvGreeting)
         tvEditName = headerView.findViewById(R.id.tvEditName)
-        tvStreak = headerView.findViewById(R.id.tvStreak) // ✅ Make sure this is initialized
+        //tvStreak = headerView.findViewById(R.id.tvStreak) // ✅ Make sure this is initialized
 
         // Set click listener for "Edit/Create Name" in the drawer header
         tvEditName.setOnClickListener {
@@ -84,11 +84,16 @@ class MainActivity : AppCompatActivity() {
 
         // Load stored username & streak from Firestore
         loadUserName()
-        loadUserStreak()
+        //loadUserStreak()
 
         // Set up listener for navigation menu items (e.g., Logout)
         navigationView.setNavigationItemSelectedListener { menuItem ->
             when (menuItem.itemId) {
+                R.id.nav_dashboard -> {  // ✅ Add this in your menu XML
+                    startActivity(Intent(this, DashboardActivity::class.java))
+                    drawerLayout.closeDrawer(GravityCompat.START)
+                    true
+                }
                 R.id.nav_logout -> {
                     performLogout()
                     drawerLayout.closeDrawer(GravityCompat.START)
@@ -178,19 +183,19 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadUserStreak() {
-        val userId = auth.currentUser?.uid
-        userId?.let {
-            firestore.collection("users").document(it).get()
-                .addOnSuccessListener { document ->
-                    val streak = document.getLong("streak")?.toInt() ?: 0
-                    tvStreak.text = "Streak: $streak" // ✅ Update streak in menu
-                }
-                .addOnFailureListener {
-                    Toast.makeText(this, "Failed to load streak", Toast.LENGTH_SHORT).show()
-                }
-        }
-    }
+//    private fun loadUserStreak() {
+//        val userId = auth.currentUser?.uid
+//        userId?.let {
+//            firestore.collection("users").document(it).get()
+//                .addOnSuccessListener { document ->
+//                    val streak = document.getLong("streak")?.toInt() ?: 0
+//                    tvStreak.text = "Streak: $streak" // ✅ Update streak in menu
+//                }
+//                .addOnFailureListener {
+//                    Toast.makeText(this, "Failed to load streak", Toast.LENGTH_SHORT).show()
+//                }
+//        }
+//    }
 
     private fun performLogout() {
         auth.signOut()

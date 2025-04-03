@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Bundle
 import android.os.CountDownTimer
+import android.text.Html
 import android.util.Log
 import android.view.View
 import android.widget.*
@@ -28,6 +29,7 @@ class DailyChallengeActivity : AppCompatActivity() {
     private lateinit var submitButton: Button
     private lateinit var resultText: TextView
     private lateinit var explanationText: TextView
+    private lateinit var encouragementText: TextView
     private lateinit var timerText: TextView
     private lateinit var answerIndicator: ImageView
 
@@ -49,6 +51,7 @@ class DailyChallengeActivity : AppCompatActivity() {
         submitButton = findViewById(R.id.btnSubmit)
         resultText = findViewById(R.id.tvResult)
         explanationText = findViewById(R.id.tvExplanation)
+        encouragementText = findViewById(R.id.tvEncouragement)
         timerText = findViewById(R.id.tvTimer)
         answerIndicator = findViewById(R.id.ivIndicator)
 
@@ -164,27 +167,46 @@ class DailyChallengeActivity : AppCompatActivity() {
     }
 
     private fun checkAnswer(selected: String) {
+        showAnswer(selected)  // ✅ Directly call showAnswer()
+
+        // ✅ Update streak inline
+        if (selected == correctAnswer) increaseStreak() else resetStreak()
+    }
+
+
+    private fun showAnswer(selected: String) {
         val isCorrect = selected == correctAnswer
+
+        // Update result text and color
         resultText.text = if (isCorrect) "Correct!" else "Wrong!"
         resultText.setTextColor(ContextCompat.getColor(this, if (isCorrect) R.color.green else R.color.red))
 
-        if (isCorrect) increaseStreak() else resetStreak()
-
-        showAnswer(selected)
-    }
-
-    private fun showAnswer(selected: String) {
-        explanationText.text = "Correct Answer: $correctAnswer\nExplanation: $explanation"
+        // Display the correct answer explanation
         explanationText.visibility = View.VISIBLE
+        explanationText.text = "Correct Answer: $correctAnswer\nExplanation: $explanation"
 
+        // Show encouragement message
+        encouragementText.visibility = View.VISIBLE
+        val encouragementMessage = if (isCorrect) {
+            "<font color='#008000'>Congratulations! Come back tomorrow for another interesting problem</font>"
+        } else {
+            "<font color='#800000'>Failure is the </font><font color='#008000'>stepping stone</font><font color='#800000'> to Success!! Come back Tomorrow...</font>"
+        }
+        encouragementText.text = Html.fromHtml(encouragementMessage, Html.FROM_HTML_MODE_LEGACY)
+
+        // Show correct/wrong indicator
         answerIndicator.visibility = View.VISIBLE
-        answerIndicator.setImageResource(if (selected == correctAnswer) R.drawable.ic_correct else R.drawable.ic_wrong)
+        answerIndicator.setImageResource(if (isCorrect) R.drawable.ic_correct else R.drawable.ic_wrong)
 
+        // ✅ Disable options
         for (i in 0 until optionsGroup.childCount) {
             optionsGroup.getChildAt(i).isEnabled = false
         }
+
+        // ✅ Disable Submit button
         submitButton.isEnabled = false
     }
+
 
     private fun startCountdownTimer() {
         val calendar = Calendar.getInstance()
