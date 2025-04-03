@@ -54,7 +54,7 @@
                 android:textSize="20sp" />
         </LinearLayout>
 
-        <!-- Optional Hamburger Icon to open Drawer -->
+        <!-- Hamburger Icon to Open Drawer -->
         <ImageView
             android:id="@+id/hamburgerIcon"
             android:layout_width="58dp"

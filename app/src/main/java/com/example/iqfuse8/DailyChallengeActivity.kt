@@ -1,18 +1,26 @@
 package com.example.iqfuse8
 
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Bundle
+import android.os.CountDownTimer
 import android.util.Log
+import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
 
 class DailyChallengeActivity : AppCompatActivity() {
 
     private val firestore = FirebaseFirestore.getInstance()
+    private lateinit var auth: FirebaseAuth
     private lateinit var sharedPreferences: SharedPreferences
 
     private lateinit var questionText: TextView
@@ -20,17 +28,19 @@ class DailyChallengeActivity : AppCompatActivity() {
     private lateinit var submitButton: Button
     private lateinit var resultText: TextView
     private lateinit var explanationText: TextView
+    private lateinit var timerText: TextView
+    private lateinit var answerIndicator: ImageView
 
-    private var currentQuestion: String? = null
     private var correctAnswer: String? = null
     private var explanation: String? = null
     private var selectedAnswer: String? = null
+    private var countdownTimer: CountDownTimer? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_daily_challenge)
 
-        // Initialize SharedPreferences
+        auth = FirebaseAuth.getInstance()
         sharedPreferences = getSharedPreferences("DailyChallengePrefs", Context.MODE_PRIVATE)
 
         // Bind UI elements
@@ -39,106 +49,77 @@ class DailyChallengeActivity : AppCompatActivity() {
         submitButton = findViewById(R.id.btnSubmit)
         resultText = findViewById(R.id.tvResult)
         explanationText = findViewById(R.id.tvExplanation)
+        timerText = findViewById(R.id.tvTimer)
+        answerIndicator = findViewById(R.id.ivIndicator)
 
         loadDailyChallenge()
+        startCountdownTimer()
     }
 
     private fun loadDailyChallenge() {
-        val lastAssignedTime = sharedPreferences.getLong("lastAssignedTime", 0)
-        val currentTime = System.currentTimeMillis()
+        val userId = auth.currentUser?.uid ?: return
+        val todayDate = getCurrentDate()
 
-        if (TimeUnit.MILLISECONDS.toHours(currentTime - lastAssignedTime) < 24) {
-            displayStoredQuestion()
-        } else {
-            assignNewChallenge()
-        }
-    }
+        val userChallengeRef = firestore.collection("users").document(userId)
+            .collection("dailyChallenge").document(todayDate)
 
-    private fun assignNewChallenge() {
-        firestore.collection("questions")
-            .get()
-            .addOnSuccessListener { topicDocuments ->
-                if (topicDocuments.isEmpty) {
-                    Log.e("FirestoreError", "No topics found")
-                    return@addOnSuccessListener
+        userChallengeRef.get().addOnSuccessListener { document ->
+            if (document.exists()) {
+                val questionId = document.getString("questionId")
+                val answered = document.getBoolean("answered") ?: false
+                val selectedOption = document.getString("selectedOption") ?: ""
+
+                if (!questionId.isNullOrEmpty()) {
+                    fetchQuestionById(questionId, answered, selectedOption)
                 }
-
-                val randomTopic = topicDocuments.documents.random()
-                Log.d("FirestoreData", "Selected Topic: ${randomTopic.id}")
-
-                randomTopic.reference.collection("sets")
-                    .get()
-                    .addOnSuccessListener { setDocuments ->
-                        if (setDocuments.isEmpty) {
-                            Log.e("FirestoreError", "No sets found in ${randomTopic.id}")
-                            return@addOnSuccessListener
-                        }
-
-                        val randomSet = setDocuments.documents.random()
-                        Log.d("FirestoreData", "Selected Set: ${randomSet.id}")
-
-                        val questionFields = randomSet.data
-                        if (questionFields.isNullOrEmpty()) {
-                            Log.e("FirestoreError", "No questions in set ${randomSet.id}")
-                            return@addOnSuccessListener
-                        }
-
-                        val randomQuestionKey = questionFields.keys.random()
-                        val questionData = questionFields[randomQuestionKey] as? Map<String, Any>
-
-                        if (questionData == null) {
-                            Log.e("FirestoreError", "Invalid question format in ${randomSet.id}")
-                            return@addOnSuccessListener
-                        }
-
-                        currentQuestion = questionData["question"] as? String
-                        correctAnswer = questionData["answer"] as? String
-                        explanation = questionData["explanation"] as? String
-                        val options = questionData["options"] as? List<String>
-
-                        if (currentQuestion != null && correctAnswer != null && options != null) {
-                            saveDailyChallenge(currentQuestion!!, options, correctAnswer!!, explanation ?: "")
-                            displayQuestion(currentQuestion!!, options)
-                        } else {
-                            Log.e("FirestoreError", "Missing fields in question data")
-                        }
-                    }
-                    .addOnFailureListener { e ->
-                        Log.e("FirestoreError", "Error fetching sets: ${e.message}")
-                    }
+            } else {
+                assignNewQuestion(userChallengeRef)
             }
-            .addOnFailureListener { e ->
-                Log.e("FirestoreError", "Error fetching topics: ${e.message}")
-            }
-    }
-
-    private fun saveDailyChallenge(question: String, options: List<String>, answer: String, explanation: String) {
-        sharedPreferences.edit().apply {
-            putString("currentQuestion", question)
-            putStringSet("options", options.toSet())
-            putString("correctAnswer", answer)
-            putString("explanation", explanation)
-            putLong("lastAssignedTime", System.currentTimeMillis())
-            putBoolean("answered", false)
-            apply()
+        }.addOnFailureListener {
+            Log.e("FirestoreError", "Failed to fetch daily challenge: ${it.message}")
         }
     }
 
-    private fun displayStoredQuestion() {
-        currentQuestion = sharedPreferences.getString("currentQuestion", null)
-        correctAnswer = sharedPreferences.getString("correctAnswer", null)
-        explanation = sharedPreferences.getString("explanation", null)
-        val options = sharedPreferences.getStringSet("options", emptySet())?.toList() ?: emptyList()
+    private fun assignNewQuestion(userChallengeRef: com.google.firebase.firestore.DocumentReference) {
+        firestore.collection("DailyChallenge").get().addOnSuccessListener { snapshot ->
+            val questions = snapshot.documents
+            if (questions.isNotEmpty()) {
+                val randomQuestion = questions.random()
+                val questionId = randomQuestion.id
 
-        if (currentQuestion.isNullOrEmpty() || options.isEmpty()) {
-            Log.e("SharedPreferences", "No stored question found")
-            assignNewChallenge()
-        } else {
-            displayQuestion(currentQuestion!!, options)
-            if (sharedPreferences.getBoolean("answered", false)) {
-                showAnswer()
+                val challengeData = mapOf(
+                    "questionId" to questionId,
+                    "answered" to false,
+                    "selectedOption" to ""
+                )
+
+                userChallengeRef.set(challengeData).addOnSuccessListener {
+                    fetchQuestionById(questionId, false, "")
+                }
             }
+        }.addOnFailureListener {
+            Log.e("FirestoreError", "Error fetching questions: ${it.message}")
         }
+    }
+
+    private fun fetchQuestionById(questionId: String, answered: Boolean, selectedOption: String) {
+        firestore.collection("DailyChallenge").document(questionId).get()
+            .addOnSuccessListener { document ->
+                if (document.exists()) {
+                    val questionText = document.getString("question") ?: "No question available"
+                    val options = document.get("options") as? List<String> ?: emptyList()
+                    correctAnswer = document.getString("correct_option")
+                    explanation = document.getString("explanation")
+
+                    displayQuestion(questionText, options)
+
+                    if (answered) {
+                        showAnswer(selectedOption)
+                    }
+                }
+            }.addOnFailureListener {
+                Log.e("FirestoreError", "Error fetching question: ${it.message}")
+            }
     }
 
     private fun displayQuestion(question: String, options: List<String>) {
@@ -156,40 +137,104 @@ class DailyChallengeActivity : AppCompatActivity() {
             if (selectedId != -1) {
                 val selectedRadioButton = findViewById<RadioButton>(selectedId)
                 selectedAnswer = selectedRadioButton.text.toString()
-                checkAnswer(selectedAnswer!!)
+                submitAnswer(selectedAnswer!!)
             } else {
                 Toast.makeText(this, "Please select an option", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    private fun checkAnswer(selected: String) {
-        val isCorrect = selected == correctAnswer
-        if (isCorrect) {
-            increaseStreak()
-            resultText.text = "Correct!"
-            resultText.setTextColor(getColor(R.color.green))
-        } else {
-            resultText.text = "Wrong!"
-            resultText.setTextColor(getColor(R.color.blue))
+    private fun submitAnswer(selected: String) {
+        val userId = auth.currentUser?.uid ?: return
+        val todayDate = getCurrentDate()
+
+        val userChallengeRef = firestore.collection("users").document(userId)
+            .collection("dailyChallenge").document(todayDate)
+
+        val updateData = mapOf(
+            "answered" to true,
+            "selectedOption" to selected
+        )
+
+        userChallengeRef.update(updateData).addOnSuccessListener {
+            checkAnswer(selected)
+        }.addOnFailureListener {
+            Log.e("FirestoreError", "Error updating answer: ${it.message}")
         }
-        showAnswer()
-        sharedPreferences.edit().putBoolean("answered", true).apply()
     }
 
-    private fun showAnswer() {
+    private fun checkAnswer(selected: String) {
+        val isCorrect = selected == correctAnswer
+        resultText.text = if (isCorrect) "Correct!" else "Wrong!"
+        resultText.setTextColor(ContextCompat.getColor(this, if (isCorrect) R.color.green else R.color.red))
+
+        if (isCorrect) increaseStreak() else resetStreak()
+
+        showAnswer(selected)
+    }
+
+    private fun showAnswer(selected: String) {
         explanationText.text = "Correct Answer: $correctAnswer\nExplanation: $explanation"
-        explanationText.visibility = TextView.VISIBLE
-        optionsGroup.setOnCheckedChangeListener(null)
+        explanationText.visibility = View.VISIBLE
+
+        answerIndicator.visibility = View.VISIBLE
+        answerIndicator.setImageResource(if (selected == correctAnswer) R.drawable.ic_correct else R.drawable.ic_wrong)
+
         for (i in 0 until optionsGroup.childCount) {
             optionsGroup.getChildAt(i).isEnabled = false
         }
         submitButton.isEnabled = false
     }
 
+    private fun startCountdownTimer() {
+        val calendar = Calendar.getInstance()
+        calendar.add(Calendar.DAY_OF_YEAR, 1)
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+
+        val currentTime = System.currentTimeMillis()
+        val nextResetTime = calendar.timeInMillis
+        val remainingTime = nextResetTime - currentTime
+
+        countdownTimer?.cancel()
+        countdownTimer = object : CountDownTimer(remainingTime, 1000) {
+            override fun onTick(millisUntilFinished: Long) {
+                val hours = TimeUnit.MILLISECONDS.toHours(millisUntilFinished)
+                val minutes = TimeUnit.MILLISECONDS.toMinutes(millisUntilFinished) % 60
+                val seconds = TimeUnit.MILLISECONDS.toSeconds(millisUntilFinished) % 60
+                timerText.text = "Next Challenge in: %02d:%02d:%02d".format(hours, minutes, seconds)
+            }
+
+            override fun onFinish() {
+                timerText.text = "New Challenge Available!"
+            }
+        }.start()
+    }
+
     private fun increaseStreak() {
-        val currentStreak = sharedPreferences.getInt("streak", 0)
-        sharedPreferences.edit().putInt("streak", currentStreak + 1).apply()
-        Toast.makeText(this, "Streak increased!", Toast.LENGTH_SHORT).show()
+        val userId = auth.currentUser?.uid ?: return
+        val userRef = firestore.collection("users").document(userId)
+
+        userRef.get().addOnSuccessListener { document ->
+            val currentStreak = (document.getLong("streak") ?: 0).toInt() + 1
+            userRef.update("streak", currentStreak)
+            updateMainActivityStreak(currentStreak)
+        }
+    }
+
+    private fun resetStreak() {
+        val userId = auth.currentUser?.uid ?: return
+        firestore.collection("users").document(userId).update("streak", 0)
+        updateMainActivityStreak(0)
+    }
+
+    private fun updateMainActivityStreak(newStreak: Int) {
+        val intent = Intent("UPDATE_STREAK").putExtra("newStreak", newStreak)
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
+    }
+
+    private fun getCurrentDate(): String {
+        return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
     }
 }

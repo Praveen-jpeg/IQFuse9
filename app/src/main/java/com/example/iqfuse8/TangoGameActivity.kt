@@ -12,7 +12,7 @@ class TangoGameActivity : AppCompatActivity() {
     private lateinit var gridLayout: GridLayout
     private lateinit var puzzle: Array<CharArray>
     private lateinit var userGrid: Array<CharArray>
-    private var puzzleSize = 6 
+    private var puzzleSize = 6
     private lateinit var buttons: Array<Array<Button>>
 
     override fun onCreate(savedInstanceState: Bundle?) {
