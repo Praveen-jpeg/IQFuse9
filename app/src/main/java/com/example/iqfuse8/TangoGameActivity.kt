@@ -40,7 +40,7 @@ class TangoGameActivity : AppCompatActivity() {
                     layoutParams = GridLayout.LayoutParams().apply {
                         width = 200
                         height = 200
-                        setMargins(8, 8, 8, 8)
+//                        setMargins(4, 4, 4, 4)
                         gravity = Gravity.CENTER
                     }
                     setOnClickListener { onCellClicked(row, col) }

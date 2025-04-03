@@ -6,6 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.iqfuse8"
+
     compileSdk = 35
 
     defaultConfig {
@@ -39,6 +40,7 @@ android {
     }
 }
 
+// ✅ Correctly placed `dependencies` block (outside `android {}` but within the script)
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
@@ -46,18 +48,20 @@ dependencies {
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
 
-    // 🔥 Firebase Dependencies (Updated Versions)
+    // 🔥 Firebase Dependencies
     implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.firestore.ktx)
+    implementation(libs.firebase.messaging)  // ✅ Fix: Correct Messaging Dependency
 
-    // 🔹 Google Play Services (Fixes SecurityException)
+    // 🔹 Google Play Services
     implementation(libs.play.services.base)
     implementation(libs.androidx.recyclerview)
+    implementation(libs.okhttp)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }
 
-// 🔄 Apply Google Services Plugin
+// 🔄 Apply Google Services Plugin (after `dependencies`)
 apply(plugin = "com.google.gms.google-services")

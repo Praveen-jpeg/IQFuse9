@@ -3,15 +3,15 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:gravity="center"
-    android:padding="16dp">
+    android:padding="10dp">
 
     <GridLayout
         android:id="@+id/gridLayout"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:columnCount="4"
-        android:rowCount="4"
-        android:padding="16dp"
+        android:columnCount="6"
+        android:rowCount="6"
+        android:padding="5dp"
         android:layout_gravity="center"/>
 
     <Button

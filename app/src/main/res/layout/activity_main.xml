@@ -65,7 +65,7 @@
             android:contentDescription="Hamburger Menu"
             android:focusable="true"
             android:padding="8dp"
-            android:src="@drawable/user128"
+            android:src="@drawable/img"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 

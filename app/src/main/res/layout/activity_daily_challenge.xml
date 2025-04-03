@@ -9,23 +9,24 @@
         android:id="@+id/tvQuestion"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Question goes here"
+        android:text="Question will appear here"
         android:textSize="18sp"
         android:textStyle="bold"
-        android:layout_marginBottom="10dp" />
+        android:layout_marginBottom="12dp" />
 
     <RadioGroup
         android:id="@+id/rgOptions"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="vertical" />
+        android:orientation="vertical"
+        android:layout_marginBottom="16dp" />
 
     <Button
         android:id="@+id/btnSubmit"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Submit"
-        android:layout_marginTop="10dp" />
+        android:text="Submit Answer"
+        android:layout_marginBottom="12dp" />
 
     <TextView
         android:id="@+id/tvResult"
@@ -33,31 +34,39 @@
         android:layout_height="wrap_content"
         android:textSize="18sp"
         android:textStyle="bold"
-        android:layout_marginTop="10dp" />
+        android:visibility="gone"
+        android:layout_marginBottom="8dp" />
+
+    <ImageView
+        android:id="@+id/ivIndicator"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:visibility="gone"
+        android:layout_marginBottom="8dp" />
 
     <TextView
         android:id="@+id/tvExplanation"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textSize="16sp"
-        android:layout_marginTop="10dp"
-        android:visibility="gone" />
+        android:textStyle="bold"
+        android:visibility="gone"
+        android:padding="8dp" />
 
-    <!-- Timer to show remaining time -->
+    <TextView
+        android:id="@+id/tvEncouragement"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:padding="8dp"
+        android:layout_marginTop="8dp"/>
+
     <TextView
         android:id="@+id/tvTimer"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Time remaining: --:--:--"
         android:textSize="16sp"
-        android:textColor="@android:color/holo_blue_dark"
-        android:layout_marginTop="10dp" />
+        android:textStyle="bold"
+        android:layout_marginTop="16dp" />
 
-    <!-- Indicator for correct or wrong answer -->
-    <ImageView
-        android:id="@+id/ivIndicator"
-        android:layout_width="50dp"
-        android:layout_height="50dp"
-        android:layout_marginTop="10dp"
-        android:visibility="gone" />
 </LinearLayout>
