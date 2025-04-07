@@ -28,6 +28,9 @@
             android:name=".DashboardActivity"
             android:exported="false" />
         <activity
+            android:name=".DashboardActivity"
+            android:exported="false" />
+        <activity
             android:name=".TangoGameActivity"
             android:exported="false" />
         <activity
