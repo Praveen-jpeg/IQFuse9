@@ -167,25 +167,19 @@ class DailyChallengeActivity : AppCompatActivity() {
     }
 
     private fun checkAnswer(selected: String) {
-        showAnswer(selected)  // ✅ Directly call showAnswer()
-
-        // ✅ Update streak inline
+        showAnswer(selected)
         if (selected == correctAnswer) increaseStreak() else resetStreak()
     }
-
 
     private fun showAnswer(selected: String) {
         val isCorrect = selected == correctAnswer
 
-        // Update result text and color
         resultText.text = if (isCorrect) "Correct!" else "Wrong!"
         resultText.setTextColor(ContextCompat.getColor(this, if (isCorrect) R.color.green else R.color.red))
 
-        // Display the correct answer explanation
         explanationText.visibility = View.VISIBLE
         explanationText.text = "Correct Answer: $correctAnswer\nExplanation: $explanation"
 
-        // Show encouragement message
         encouragementText.visibility = View.VISIBLE
         val encouragementMessage = if (isCorrect) {
             "<font color='#008000'>Congratulations! Come back tomorrow for another interesting problem</font>"
@@ -194,19 +188,15 @@ class DailyChallengeActivity : AppCompatActivity() {
         }
         encouragementText.text = Html.fromHtml(encouragementMessage, Html.FROM_HTML_MODE_LEGACY)
 
-        // Show correct/wrong indicator
         answerIndicator.visibility = View.VISIBLE
         answerIndicator.setImageResource(if (isCorrect) R.drawable.ic_correct else R.drawable.ic_wrong)
 
-        // ✅ Disable options
         for (i in 0 until optionsGroup.childCount) {
             optionsGroup.getChildAt(i).isEnabled = false
         }
 
-        // ✅ Disable Submit button
         submitButton.isEnabled = false
     }
-
 
     private fun startCountdownTimer() {
         val calendar = Calendar.getInstance()
@@ -237,17 +227,36 @@ class DailyChallengeActivity : AppCompatActivity() {
     private fun increaseStreak() {
         val userId = auth.currentUser?.uid ?: return
         val userRef = firestore.collection("users").document(userId)
+        val today = getCurrentDate()
 
         userRef.get().addOnSuccessListener { document ->
-            val currentStreak = (document.getLong("streak") ?: 0).toInt() + 1
-            userRef.update("streak", currentStreak)
+            val lastPlayedDate = document.getString("lastPlayedDate")
+            val currentStreak = if (isYesterday(lastPlayedDate)) {
+                (document.getLong("streak") ?: 0).toInt() + 1
+            } else {
+                1
+            }
+
+            val updateData = mapOf(
+                "streak" to currentStreak,
+                "lastPlayedDate" to today
+            )
+
+            userRef.update(updateData)
             updateMainActivityStreak(currentStreak)
         }
     }
 
     private fun resetStreak() {
         val userId = auth.currentUser?.uid ?: return
-        firestore.collection("users").document(userId).update("streak", 0)
+        val today = getCurrentDate()
+
+        firestore.collection("users").document(userId).update(
+            mapOf(
+                "streak" to 0,
+                "lastPlayedDate" to today
+            )
+        )
         updateMainActivityStreak(0)
     }
 
@@ -258,5 +267,18 @@ class DailyChallengeActivity : AppCompatActivity() {
 
     private fun getCurrentDate(): String {
         return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+    }
+
+    private fun isYesterday(dateStr: String?): Boolean {
+        if (dateStr == null) return false
+
+        val format = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val lastDate = format.parse(dateStr) ?: return false
+
+        val calendar = Calendar.getInstance()
+        calendar.add(Calendar.DAY_OF_YEAR, -1)
+        val yesterday = calendar.time
+
+        return format.format(lastDate) == format.format(yesterday)
     }
 }

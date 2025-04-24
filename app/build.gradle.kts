@@ -57,6 +57,7 @@ dependencies {
     implementation(libs.play.services.base)
     implementation(libs.androidx.recyclerview)
     implementation(libs.okhttp)
+    implementation(libs.androidx.work.runtime.ktx)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

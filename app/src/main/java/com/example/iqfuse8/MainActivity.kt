@@ -1,14 +1,10 @@
 package com.example.iqfuse8
 
 import android.Manifest
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
+import android.content.*
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -19,13 +15,16 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import com.google.android.material.navigation.NavigationView
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
 import com.google.firebase.firestore.SetOptions
-import com.google.firebase.messaging.FirebaseMessaging
+import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
 
@@ -61,7 +60,7 @@ class MainActivity : AppCompatActivity() {
         initFirebase()
         initUI()
         loadUserName()
-        saveFCMToken()
+        scheduleDailyNotification()
     }
 
     private fun requestNotificationPermission() {
@@ -113,10 +112,11 @@ class MainActivity : AppCompatActivity() {
         btnSolveAptitude.setOnClickListener {
             startActivity(Intent(this, AptitudeTopicsActivity::class.java))
         }
+
         btnDailyChallenge.setOnClickListener {
             startActivity(Intent(this, DailyChallengeActivity::class.java))
-            sendDailyChallengeNotification()
         }
+
         btnPlayTango.setOnClickListener {
             startActivity(Intent(this, TangoGameActivity::class.java))
         }
@@ -128,32 +128,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun saveFCMToken() {
-        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-            if (!task.isSuccessful) {
-                Log.w("FCM", "Fetching FCM token failed", task.exception)
-                return@addOnCompleteListener
-            }
+    private fun scheduleDailyNotification() {
+        val dailyRequest = PeriodicWorkRequestBuilder<NotificationWorker>(1, TimeUnit.DAYS)
+            .setInitialDelay(15, TimeUnit.SECONDS) // Change this delay for testing
+            .build()
 
-            auth.currentUser?.uid?.let { userId ->
-                firestore.collection("users").document(userId)
-                    .set(mapOf("fcmToken" to task.result), SetOptions.merge())
-                    .addOnSuccessListener { Log.d("FCM", "FCM Token saved to Firestore") }
-                    .addOnFailureListener { e -> Log.w("FCM", "Failed to save token", e) }
-            }
-        }
-    }
-
-    private fun sendDailyChallengeNotification() {
-        auth.currentUser?.uid?.let { userId ->
-            firestore.collection("users").document(userId).get().addOnSuccessListener { document ->
-                document.getString("fcmToken")?.let { deviceToken ->
-                    FCMSender.sendPushNotification(deviceToken, "IQFuse Daily Challenge", "New challenge is ready!")
-                }
-            }.addOnFailureListener { e ->
-                Log.w("FCM", "Failed to fetch FCM token", e)
-            }
-        }
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "daily_notification",
+            ExistingPeriodicWorkPolicy.KEEP,
+            dailyRequest
+        )
     }
 
     private fun showEditNamePopup() {
