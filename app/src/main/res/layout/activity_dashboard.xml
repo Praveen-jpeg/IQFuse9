@@ -6,6 +6,7 @@
     android:padding="16dp"
     android:gravity="center">
 
+    <!-- User Info -->
     <TextView
         android:id="@+id/tvUserName"
         android:layout_width="wrap_content"
@@ -28,7 +29,6 @@
         android:layout_height="50dp"
         android:text="Tango Game Streak: 0"
         android:textSize="18sp"
-
         android:paddingTop="10dp"
         android:textColor="@android:color/holo_blue_dark"
         android:clickable="true"
@@ -44,5 +44,24 @@
         android:textColor="@android:color/holo_blue_dark"
         android:clickable="true"
         android:focusable="true"/>
+
+    <!-- Badge Section -->
+    <TextView
+        android:id="@+id/tvBadgeSectionTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Your Badges"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:paddingTop="20dp"/>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvBadges"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:orientation="horizontal"
+        android:clipToPadding="false"
+        android:paddingBottom="12dp"/>
 
 </LinearLayout>

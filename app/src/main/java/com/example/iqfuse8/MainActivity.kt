@@ -61,7 +61,15 @@ class MainActivity : AppCompatActivity() {
         initUI()
         loadUserName()
         scheduleDailyNotification()
+        checkForBadges()
+
+        // ✅ Handle notification intent
+        val navigateTo = intent.getStringExtra("navigateTo")
+        if (navigateTo == "dailyChallenge") {
+            startActivity(Intent(this, DailyChallengeActivity::class.java))
+        }
     }
+
 
     private fun requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
@@ -100,13 +108,30 @@ class MainActivity : AppCompatActivity() {
 
         tvEditName.setOnClickListener { showEditNamePopup() }
 
+        // Set up navigation menu
         navigationView.setNavigationItemSelectedListener { menuItem ->
             when (menuItem.itemId) {
-                R.id.nav_dashboard -> startActivity(Intent(this, DashboardActivity::class.java))
-                R.id.nav_logout -> performLogout()
+                R.id.nav_home -> {
+                    // Already in home
+                    drawerLayout.closeDrawer(GravityCompat.START)
+                    true
+                }
+                R.id.nav_profile -> {
+                    startActivity(Intent(this, DashboardActivity::class.java))
+                    drawerLayout.closeDrawer(GravityCompat.START)
+                    true
+                }
+                R.id.nav_streak_history -> {
+                    startActivity(Intent(this, StreakHistoryActivity::class.java))
+                    drawerLayout.closeDrawer(GravityCompat.START)
+                    true
+                }
+                R.id.nav_logout -> {
+                    performLogout()
+                    true
+                }
+                else -> false
             }
-            drawerLayout.closeDrawer(GravityCompat.START)
-            true
         }
 
         btnSolveAptitude.setOnClickListener {
@@ -130,7 +155,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun scheduleDailyNotification() {
         val dailyRequest = PeriodicWorkRequestBuilder<NotificationWorker>(1, TimeUnit.DAYS)
-            .setInitialDelay(15, TimeUnit.SECONDS) // Change this delay for testing
+            .setInitialDelay(15, TimeUnit.SECONDS)
             .build()
 
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
@@ -178,6 +203,36 @@ class MainActivity : AppCompatActivity() {
                 }
         }
     }
+    private fun checkForBadges() {
+        auth.currentUser?.uid?.let { userId ->
+            firestore.collection("users").document(userId).get()
+                .addOnSuccessListener { doc ->
+                    val totalCompleted = doc.getLong("totalChallengesCompleted")?.toInt() ?: 0
+                    val currentStreak = doc.getLong("currentStreak")?.toInt() ?: 0
+                    val correctAnswersInRow = doc.getLong("correctAnswersInRow")?.toInt() ?: 0
+                    val earnedBadges = doc.get("badges") as? List<String> ?: emptyList()
+
+                    val userStats = UserStats(
+                        totalChallengesCompleted = totalCompleted,
+                        streak = currentStreak,
+                        correctAnswersInRow = correctAnswersInRow
+                    )
+
+                    BadgeManager.checkAndAwardBadges(userStats, earnedBadges.toSet()) { badge ->
+                        // Award new badge
+                        Toast.makeText(this, "🎉 New badge earned: ${badge.displayName}", Toast.LENGTH_LONG).show()
+
+                        // Save to Firestore
+                        val updatedBadges = earnedBadges.toMutableList().apply {
+                            add(badge.key)
+                        }
+                        firestore.collection("users").document(userId)
+                            .update("badges", updatedBadges)
+                    }
+                }
+        }
+    }
+
 
     private fun performLogout() {
         auth.signOut()

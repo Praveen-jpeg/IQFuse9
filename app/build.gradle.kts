@@ -40,7 +40,6 @@ android {
     }
 }
 
-// ✅ Correctly placed `dependencies` block (outside `android {}` but within the script)
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
@@ -48,21 +47,23 @@ dependencies {
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
 
-    // 🔥 Firebase Dependencies
+    // Firebase Dependencies
     implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.firestore.ktx)
-    implementation(libs.firebase.messaging)  // ✅ Fix: Correct Messaging Dependency
+    implementation(libs.firebase.messaging)
 
-    // 🔹 Google Play Services
+    // Google Play Services
     implementation(libs.play.services.base)
     implementation(libs.androidx.recyclerview)
     implementation(libs.okhttp)
     implementation(libs.androidx.work.runtime.ktx)
+
+    // CardView dependency
+    implementation("androidx.cardview:cardview:1.0.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }
 
-// 🔄 Apply Google Services Plugin (after `dependencies`)
 apply(plugin = "com.google.gms.google-services")
