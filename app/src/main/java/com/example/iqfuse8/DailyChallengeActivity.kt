@@ -1,8 +1,12 @@
 package com.example.iqfuse8
 
+import android.annotation.SuppressLint
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.os.Build
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.text.Html
@@ -10,6 +14,7 @@ import android.util.Log
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.google.firebase.auth.FirebaseAuth
@@ -32,6 +37,7 @@ class DailyChallengeActivity : AppCompatActivity() {
     private lateinit var encouragementText: TextView
     private lateinit var timerText: TextView
     private lateinit var answerIndicator: ImageView
+    private lateinit var tvCurrentStreak: TextView
 
     private var correctAnswer: String? = null
     private var explanation: String? = null
@@ -54,9 +60,12 @@ class DailyChallengeActivity : AppCompatActivity() {
         encouragementText = findViewById(R.id.tvEncouragement)
         timerText = findViewById(R.id.tvTimer)
         answerIndicator = findViewById(R.id.ivIndicator)
+        tvCurrentStreak = findViewById(R.id.tvCurrentStreak)
 
+        validateStreakBeforeLoad()
         loadDailyChallenge()
         startCountdownTimer()
+        loadCurrentStreak()
     }
 
     private fun loadDailyChallenge() {
@@ -75,6 +84,7 @@ class DailyChallengeActivity : AppCompatActivity() {
                 if (!questionId.isNullOrEmpty()) {
                     fetchQuestionById(questionId, answered, selectedOption)
                 }
+
             } else {
                 assignNewQuestion(userChallengeRef)
             }
@@ -168,9 +178,25 @@ class DailyChallengeActivity : AppCompatActivity() {
 
     private fun checkAnswer(selected: String) {
         showAnswer(selected)
-        if (selected == correctAnswer) increaseStreak() else resetStreak()
+        val isAnswerCorrect = selected == correctAnswer
+        
+        if (isAnswerCorrect) {
+            increaseStreak()
+        } else {
+            resetStreak()
+        }
+
+        // Update user stats
+        val userId = FirebaseAuth.getInstance().currentUser?.uid
+        if (userId != null) {
+            UserStatsManager.updateUserStats(userId, isAnswerCorrect)
+            
+            // Check for badges after updating stats
+            checkForBadges()
+        }
     }
 
+    @SuppressLint("SetTextI18n")
     private fun showAnswer(selected: String) {
         val isCorrect = selected == correctAnswer
 
@@ -224,61 +250,181 @@ class DailyChallengeActivity : AppCompatActivity() {
         }.start()
     }
 
+    private fun loadCurrentStreak() {
+        val userId = auth.currentUser?.uid ?: return
+        firestore.collection("users").document(userId).get()
+            .addOnSuccessListener { document ->
+                val currentStreak = document.getLong("streak")?.toInt() ?: 0
+                tvCurrentStreak.text = "Current Streak: $currentStreak"
+            }
+    }
+
+    private fun updateStreakDisplay(newStreak: Int) {
+        tvCurrentStreak.text = "Current Streak: $newStreak"
+    }
+
     private fun increaseStreak() {
         val userId = auth.currentUser?.uid ?: return
         val userRef = firestore.collection("users").document(userId)
-        val today = getCurrentDate()
-
-        userRef.get().addOnSuccessListener { document ->
-            val lastPlayedDate = document.getString("lastPlayedDate")
-            val currentStreak = if (isYesterday(lastPlayedDate)) {
-                (document.getLong("streak") ?: 0).toInt() + 1
-            } else {
-                1
+        
+        firestore.runTransaction { transaction ->
+            val snapshot = transaction.get(userRef)
+            val currentStreak = snapshot.getLong("streak")?.toInt() ?: 0
+            val newStreak = currentStreak + 1
+            
+            // Update streak
+            transaction.update(userRef, "streak", newStreak)
+            
+            // Record streak history
+            val historyRef = userRef.collection("streakHistory").document()
+            transaction.set(historyRef, mapOf(
+                "date" to getCurrentDate(),
+                "streak" to newStreak,
+                "reason" to "correct"
+            ))
+            
+            // Check for milestone
+            if (newStreak % 5 == 0) {
+                val milestoneRef = userRef.collection("streakHistory").document()
+                transaction.set(milestoneRef, mapOf(
+                    "date" to getCurrentDate(),
+                    "streak" to newStreak,
+                    "reason" to "milestone"
+                ))
+                showMilestoneNotification(newStreak)
             }
-
-            val updateData = mapOf(
-                "streak" to currentStreak,
-                "lastPlayedDate" to today
-            )
-
-            userRef.update(updateData)
-            updateMainActivityStreak(currentStreak)
+            
+            Pair(currentStreak, newStreak)
+        }.addOnSuccessListener { (oldStreak, newStreak) ->
+            updateStreakDisplay(newStreak)
+            LoggingManager.logStreakUpdate(userId, oldStreak, newStreak, "Increased streak")
+        }.addOnFailureListener { e ->
+            Log.e("DailyChallenge", "Error updating streak", e)
         }
     }
 
     private fun resetStreak() {
         val userId = auth.currentUser?.uid ?: return
-        val today = getCurrentDate()
-
-        firestore.collection("users").document(userId).update(
-            mapOf(
-                "streak" to 0,
-                "lastPlayedDate" to today
-            )
-        )
-        updateMainActivityStreak(0)
+        val userRef = firestore.collection("users").document(userId)
+        
+        firestore.runTransaction { transaction ->
+            val snapshot = transaction.get(userRef)
+            val currentStreak = snapshot.getLong("streak")?.toInt() ?: 0
+            
+            // Record streak history before reset
+            val historyRef = userRef.collection("streakHistory").document()
+            transaction.set(historyRef, mapOf(
+                "date" to getCurrentDate(),
+                "streak" to currentStreak,
+                "reason" to "wrong"
+            ))
+            
+            // Reset streak
+            transaction.update(userRef, "streak", 0)
+            currentStreak
+        }.addOnSuccessListener { oldStreak ->
+            updateStreakDisplay(0)
+            LoggingManager.logStreakUpdate(userId, oldStreak, 0, "Reset streak")
+        }.addOnFailureListener { e ->
+            Log.e("DailyChallenge", "Error resetting streak", e)
+        }
     }
 
-    private fun updateMainActivityStreak(newStreak: Int) {
-        val intent = Intent("UPDATE_STREAK").putExtra("newStreak", newStreak)
-        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
+    private fun showMilestoneNotification(streak: Int) {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val channelId = "streak_milestones"
+        
+        // Create notification channel if needed
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId,
+                "Streak Milestones",
+                NotificationManager.IMPORTANCE_DEFAULT
+            )
+            notificationManager.createNotificationChannel(channel)
+        }
+        
+        val notification = NotificationCompat.Builder(this, channelId)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle("Streak Milestone!")
+            .setContentText("Congratulations! You've reached a ${streak}-day streak!")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .build()
+        
+        notificationManager.notify(streak, notification)
     }
 
     private fun getCurrentDate(): String {
         return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
     }
 
-    private fun isYesterday(dateStr: String?): Boolean {
-        if (dateStr == null) return false
+    private fun validateStreakBeforeLoad() {
+        val userId = auth.currentUser?.uid ?: return
+        val userRef = firestore.collection("users").document(userId)
 
-        val format = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-        val lastDate = format.parse(dateStr) ?: return false
+        userRef.get().addOnSuccessListener { document ->
+            val lastPlayedDate = document.getString("lastPlayedDate")
+            val today = getCurrentDate()
+            val oldStreak = document.getLong("streak")?.toInt() ?: 0
 
-        val calendar = Calendar.getInstance()
-        calendar.add(Calendar.DAY_OF_YEAR, -1)
-        val yesterday = calendar.time
+            if (lastPlayedDate != null) {
+                val format = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                val lastDate = format.parse(lastPlayedDate)
+                val currentDate = format.parse(today)
+                
+                if (lastDate != null && currentDate != null) {
+                    val diffInDays = TimeUnit.MILLISECONDS.toDays(currentDate.time - lastDate.time)
+                    
+                    // Only reset streak if more than one day has passed
+                    if (diffInDays > 1) {
+                        userRef.update(
+                            mapOf(
+                                "streak" to 0,
+                                "lastPlayedDate" to today
+                            )
+                        ).addOnSuccessListener {
+                            LoggingManager.logStreakUpdate(userId, oldStreak, 0, "Missed more than one day")
+                            updateMainActivityStreak(0)
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-        return format.format(lastDate) == format.format(yesterday)
+    private fun checkForBadges() {
+        auth.currentUser?.uid?.let { userId ->
+            firestore.collection("users").document(userId).get()
+                .addOnSuccessListener { doc ->
+                    val totalCompleted = doc.getLong("totalChallengesCompleted")?.toInt() ?: 0
+                    val streak = doc.getLong("streak")?.toInt() ?: 0
+                    val correctAnswersInRow = doc.getLong("correctAnswersInRow")?.toInt() ?: 0
+                    val earnedBadges = doc.get("badges") as? List<String> ?: emptyList()
+
+                    val userStats = UserStats(
+                        totalChallengesCompleted = totalCompleted,
+                        streak = streak,
+                        correctAnswersInRow = correctAnswersInRow
+                    )
+
+                    BadgeManager.checkAndAwardBadges(userStats, earnedBadges.toSet()) { badge ->
+                        // Award new badge
+                        Toast.makeText(this, "🎉 New badge earned: ${badge.displayName}", Toast.LENGTH_LONG).show()
+
+                        // Save to Firestore
+                        val updatedBadges = earnedBadges.toMutableList().apply {
+                            add(badge.key)
+                        }
+                        firestore.collection("users").document(userId)
+                            .update("badges", updatedBadges)
+                    }
+                }
+        }
+    }
+
+    private fun updateMainActivityStreak(newStreak: Int) {
+        val intent = Intent("UPDATE_STREAK").putExtra("newStreak", newStreak)
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
     }
 }

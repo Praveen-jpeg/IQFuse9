@@ -81,7 +81,7 @@ class QuestionsActivity : AppCompatActivity() {
                         val questionList = document.get("questions") as? List<Map<String, Any>>
                         Log.d("QuestionsActivity", "Number of Questions: ${questionList?.size}")
 
-                        if (questionList != null && questionList.isNotEmpty()) {
+                        if (!questionList.isNullOrEmpty()) {
                             questionsList.clear()
                             questionList.forEach { questionData ->
                                 val questionText = questionData["question"] as? String ?: ""

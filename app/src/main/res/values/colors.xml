@@ -6,4 +6,7 @@
     <color name="blue">#59b5df</color>
     <color name="purple_500">#6200EE</color>
     <color name="red">#FF0000</color>
+    <color name="cell_background">#FFFFFF</color>
+    <color name="cell_text">#000000</color>
+    <color name="preset_cell">#E0E0E0</color>
 </resources>
