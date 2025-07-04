@@ -1,138 +1,125 @@
 package com.example.iqfuse8
 
 import android.os.Bundle
-import android.util.Log
-import android.view.Gravity
 import android.widget.Button
 import android.widget.GridLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 
 class TangoGameActivity : AppCompatActivity() {
+
     private lateinit var gridLayout: GridLayout
+    private lateinit var checkButton: Button
+    private lateinit var streakTextView: TextView
+    private lateinit var scoreTextView: TextView
+    private val size = 6
     private lateinit var puzzle: Array<CharArray>
-    private lateinit var userGrid: Array<CharArray>
-    private var puzzleSize = 6 
-    private lateinit var buttons: Array<Array<Button>>
+    private lateinit var cells: Array<Array<TextView>>
+
+    private var score = 0
+    private var streak = 0
+    private val prefs by lazy { getSharedPreferences("TangoPrefs", MODE_PRIVATE) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_tango_game)
 
         gridLayout = findViewById(R.id.gridLayout)
-        val checkButton: Button = findViewById(R.id.btnCheckSolution)
+        checkButton = findViewById(R.id.btnCheckSolution)
+        streakTextView = findViewById(R.id.tvStreak)
+        scoreTextView = findViewById(R.id.tvScore)
 
+        puzzle = PuzzleGenerator.getPuzzleForDay(size)
+        cells = Array(size) { Array(size) { TextView(this) } }
+
+        loadScoreAndStreak()
+        updateScoreAndStreakUI()
         setupGrid()
-        loadPuzzle()
 
-        checkButton.setOnClickListener { checkSolution() }
+        checkButton.setOnClickListener {
+            if (validatePuzzle()) {
+                score += 10
+                streak += 1
+                saveScoreAndStreak()
+                updateScoreAndStreakUI()
+                Toast.makeText(this, "✅ Puzzle Valid! +10 Points!", Toast.LENGTH_SHORT).show()
+            } else {
+                streak = 0
+                saveScoreAndStreak()
+                updateScoreAndStreakUI()
+                Toast.makeText(this, "❌ Invalid Puzzle! Streak Reset!", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun setupGrid() {
-        gridLayout.apply {
-            columnCount = puzzleSize
-            rowCount = puzzleSize
-        }
+        gridLayout.columnCount = size
+        gridLayout.rowCount = size
+        gridLayout.removeAllViews()
 
-        buttons = Array(puzzleSize) { row ->
-            Array(puzzleSize) { col ->
-                Button(this).apply {
-                    layoutParams = GridLayout.LayoutParams().apply {
-                        width = 200
-                        height = 200
-                        setMargins(8, 8, 8, 8)
-                        gravity = Gravity.CENTER
+        for (i in 0 until size) {
+            for (j in 0 until size) {
+                val cell = TextView(this)
+                cell.text = puzzle[i][j].toString()
+                cell.textSize = 24f
+                cell.setPadding(12, 12, 12, 12)
+                cell.setBackgroundResource(R.drawable.cell_border)
+                cell.textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+                cell.setTextColor(ContextCompat.getColor(this, android.R.color.black))
+                cell.setOnClickListener {
+                    if (puzzle[i][j] == ' ') {
+                        toggleCell(cell)
                     }
-                    setOnClickListener { onCellClicked(row, col) }
-                    gridLayout.addView(this)
                 }
+                cells[i][j] = cell
+                val params = GridLayout.LayoutParams()
+                params.rowSpec = GridLayout.spec(i, 1, 1f)
+                params.columnSpec = GridLayout.spec(j, 1, 1f)
+                params.width = 0
+                params.height = 0
+                gridLayout.addView(cell, params)
             }
         }
     }
 
-    private fun loadPuzzle() {
-        puzzle = PuzzleGenerator.getPuzzleForDay(puzzleSize)
-        userGrid = Array(puzzleSize) { puzzle[it].clone() }
-
-        for (row in 0 until puzzleSize) {
-            for (col in 0 until puzzleSize) {
-                buttons[row][col].text = if (puzzle[row][col] == ' ') "" else puzzle[row][col].toString()
-            }
+    private fun toggleCell(cell: TextView) {
+        cell.text = when (cell.text) {
+            "☀" -> "☾"
+            "☾" -> " "
+            else -> "☀"
         }
     }
 
-    private fun onCellClicked(row: Int, col: Int) {
-        Log.d("TangoGame", "Cell clicked: ($row, $col)")
+    private fun validatePuzzle(): Boolean {
+        // Example validation: each row and column must contain equal number of ☀ and ☾ (i.e., 3 of each in 6x6)
+        for (i in 0 until size) {
+            val rowSymbols = cells[i].map { it.text }
+            val colSymbols = cells.map { it[i].text }
 
-        if (puzzle[row][col] != ' ') {
-            Log.d("TangoGame", "Cell ($row, $col) is fixed, can't change.")
-            return // Prevent changing preset values
-        }
-
-        val newSymbol = when (userGrid[row][col]) {
-            ' ' -> '☀'   // Sun
-            '☀' -> '☾'   // Moon
-            '☾' -> ' '   // Empty
-            else -> ' '
-        }
-
-        Log.d("TangoGame", "Changing cell ($row, $col) to $newSymbol")
-
-        // Temporarily disable move validation for debugging
-        userGrid[row][col] = newSymbol
-        buttons[row][col].text = newSymbol.toString()
-
-        // If validation is needed, uncomment the following:
-
-        if (isMoveValid(row, col, newSymbol)) {
-            userGrid[row][col] = newSymbol
-            buttons[row][col].text = newSymbol.toString()
-            Log.d("TangoGame", "Move applied successfully!")
-        } else {
-            Toast.makeText(this, "Invalid Move!", Toast.LENGTH_SHORT).show()
-            Log.d("TangoGame", "Move rejected.")
-        }
-
-    }
-
-    private fun isMoveValid(row: Int, col: Int, symbol: Char): Boolean {
-        return checkNoThreeInARowOrColumn(row, col, symbol) &&
-                checkBalancedRowAndColumn()
-    }
-
-    private fun checkNoThreeInARowOrColumn(row: Int, col: Int, symbol: Char): Boolean {
-        val grid = userGrid.map { it.clone() }.toTypedArray()
-        grid[row][col] = symbol
-
-        fun hasThreeConsecutive(arr: CharArray): Boolean {
-            for (i in 0 until arr.size - 2) {
-                if (arr[i] == arr[i + 1] && arr[i] == arr[i + 2] && arr[i] != ' ') return true
-            }
-            return false
-        }
-
-        return !hasThreeConsecutive(grid[row]) &&
-                !hasThreeConsecutive(grid.map { it[col] }.toCharArray())
-    }
-
-    private fun checkBalancedRowAndColumn(): Boolean {
-        for (i in 0 until puzzleSize) {
-            val sunRowCount = userGrid[i].count { it == '☀' }
-            val moonRowCount = userGrid[i].count { it == '☾' }
-            val sunColCount = userGrid.map { it[i] }.count { it == '☀' }
-            val moonColCount = userGrid.map { it[i] }.count { it == '☾' }
-
-            if (sunRowCount > puzzleSize / 2 || moonRowCount > puzzleSize / 2) return false
-            if (sunColCount > puzzleSize / 2 || moonColCount > puzzleSize / 2) return false
+            if (!isBalanced(rowSymbols) || !isBalanced(colSymbols)) return false
         }
         return true
     }
 
-    private fun checkSolution() {
-        if (checkBalancedRowAndColumn()) {
-            Toast.makeText(this, "Correct Solution!", Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(this, "Incorrect Solution!", Toast.LENGTH_SHORT).show()
-        }
+    private fun isBalanced(symbols: List<CharSequence>): Boolean {
+        val sun = symbols.count { it == "☀" }
+        val moon = symbols.count { it == "☾" }
+        return sun == moon
+    }
+
+    private fun loadScoreAndStreak() {
+        score = prefs.getInt("score", 0)
+        streak = prefs.getInt("streak", 0)
+    }
+
+    private fun saveScoreAndStreak() {
+        prefs.edit().putInt("score", score).putInt("streak", streak).apply()
+    }
+
+    private fun updateScoreAndStreakUI() {
+        scoreTextView.text = "Score: $score"
+        streakTextView.text = "🔥 Streak: $streak"
     }
 }

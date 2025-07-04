@@ -1,6 +1,7 @@
 package com.example.iqfuse8.adapter
 
 import android.graphics.Color
+import android.text.Html
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -37,32 +38,46 @@ class QuestionsAdapter(private val questionsList: List<Question>) :
         val options = question.options
         val buttons = listOf(holder.option1, holder.option2, holder.option3, holder.option4)
 
-        buttons.forEachIndexed { index, button ->
-            if (index < options.size) {
-                button.text = options[index]
+        // Reset buttons' states
+        buttons.forEach { button ->
+            button.visibility = View.GONE
+            button.isEnabled = true
+            button.setBackgroundColor(Color.LTGRAY)
+        }
+        holder.explanationText.visibility = View.GONE
+
+        // Set buttons for available options
+        options.forEachIndexed { index, option ->
+            if (index < buttons.size) {
+                val button = buttons[index]
+                button.text = option
                 button.visibility = View.VISIBLE
 
                 button.setOnClickListener {
-                    val selectedAnswer = options[index]
+                    // Allow user to try until correct answer is selected
+                    if (!button.isEnabled) return@setOnClickListener
+
+                    val selectedAnswer = option
                     if (selectedAnswer == question.answer) {
+                        // Correct answer: mark this button green, disable all options, show explanation and encouragement
                         button.setBackgroundColor(Color.GREEN)
                         Toast.makeText(holder.itemView.context, "Correct!", Toast.LENGTH_SHORT).show()
-                    } else {
-                        button.setBackgroundColor(Color.RED)
-                        Toast.makeText(holder.itemView.context, "Wrong!", Toast.LENGTH_SHORT).show()
-                    }
 
-                    // Show explanation
-                    holder.explanationText.text = question.explanation
-                    holder.explanationText.visibility = View.VISIBLE
+                        // Disable all option buttons
+                        buttons.forEach { it.isEnabled = false }
+
+                        // Show explanation and encouragement message
+                        holder.explanationText.visibility = View.VISIBLE
+                        holder.explanationText.text = "Correct Answer: ${question.answer}\nExplanation: ${question.explanation}\n" } else {
+                        // Wrong answer: mark this button red, disable only this button
+                        button.setBackgroundColor(Color.RED)
+                        button.isEnabled = false
+                        Toast.makeText(holder.itemView.context, "Wrong! Try again.", Toast.LENGTH_SHORT).show()
+                        // Optionally, show a partial message if desired; here we let the user try again
+                    }
                 }
-            } else {
-                button.visibility = View.GONE
             }
         }
-
-        // Hide explanation initially
-        holder.explanationText.visibility = View.GONE
     }
 
     override fun getItemCount(): Int = questionsList.size

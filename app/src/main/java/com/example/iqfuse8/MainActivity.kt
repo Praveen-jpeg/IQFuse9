@@ -1,33 +1,38 @@
 package com.example.iqfuse8
 
-import android.content.Intent
+import android.Manifest
+import android.content.*
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
-import android.widget.Button
-import android.widget.EditText
-import android.widget.ImageView
-import android.widget.TextView
-import android.widget.Toast
+import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.view.GravityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.drawerlayout.widget.DrawerLayout
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import com.google.android.material.navigation.NavigationView
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
 import com.google.firebase.firestore.SetOptions
-import com.google.firebase.firestore.Source
+import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var drawerLayout: DrawerLayout
     private lateinit var tvGreeting: TextView
     private lateinit var tvEditName: TextView
+    private lateinit var tvStreak: TextView
 
-    // Aptitude section buttons
     private lateinit var btnSolveAptitude: Button
     private lateinit var btnDailyChallenge: Button
     private lateinit var btnPlayTango: Button
@@ -35,172 +40,209 @@ class MainActivity : AppCompatActivity() {
     private lateinit var firestore: FirebaseFirestore
     private lateinit var auth: FirebaseAuth
 
+    private val streakReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val newStreak = intent?.getIntExtra("newStreak", 0) ?: 0
+            tvStreak.text = "Streak: $newStreak"
+        }
+    }
+
+    companion object {
+        private const val NOTIFICATION_PERMISSION_REQUEST = 1
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         FirebaseApp.initializeApp(this)
         setContentView(R.layout.activity_main)
 
-        // Initialize Firestore and enable offline caching
-        firestore = FirebaseFirestore.getInstance()
-        val settings = FirebaseFirestoreSettings.Builder()
-            .setPersistenceEnabled(true) // Enables local caching
-            .build()
-        firestore.firestoreSettings = settings
+        requestNotificationPermission()
+        initFirebase()
+        initUI()
+        loadUserName()
+        scheduleDailyNotification()
+        checkForBadges()
 
+        // ✅ Handle notification intent
+        val navigateTo = intent.getStringExtra("navigateTo")
+        if (navigateTo == "dailyChallenge") {
+            startActivity(Intent(this, DailyChallengeActivity::class.java))
+        }
+    }
+
+
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), NOTIFICATION_PERMISSION_REQUEST
+            )
+        }
+    }
+
+    private fun initFirebase() {
+        firestore = FirebaseFirestore.getInstance().apply {
+            firestoreSettings = FirebaseFirestoreSettings.Builder().setPersistenceEnabled(true).build()
+        }
         auth = FirebaseAuth.getInstance()
+        LocalBroadcastManager.getInstance(this)
+            .registerReceiver(streakReceiver, IntentFilter("UPDATE_STREAK"))
+    }
 
-        // Initialize DrawerLayout from activity_main.xml
+    private fun initUI() {
         drawerLayout = findViewById(R.id.drawer_layout)
-
-        // Adjust main content for system windows
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
-
-        // Set up the hamburger icon to open the navigation drawer
-        val hamburgerIcon = findViewById<ImageView>(R.id.hamburgerIcon)
-        hamburgerIcon.setOnClickListener {
-            drawerLayout.openDrawer(GravityCompat.START)
-        }
-
-        // Get references to NavigationView header views from nav_header.xml
         val navigationView = findViewById<NavigationView>(R.id.nav_view)
         val headerView = navigationView.getHeaderView(0)
+
         tvGreeting = headerView.findViewById(R.id.tvGreeting)
         tvEditName = headerView.findViewById(R.id.tvEditName)
 
-        // Set click listener for "Edit/Create Name" in the drawer header
-        tvEditName.setOnClickListener {
-            showEditNamePopup()
+        btnSolveAptitude = findViewById(R.id.btn_solve_aptitude)
+        btnDailyChallenge = findViewById(R.id.btn_daily_challenge)
+        btnPlayTango = findViewById(R.id.btn_play_tango)
+
+        findViewById<ImageView>(R.id.hamburgerIcon).setOnClickListener {
+            drawerLayout.openDrawer(GravityCompat.START)
         }
 
-        // Load the stored username from Firestore, if available
-        loadUserName()
+        tvEditName.setOnClickListener { showEditNamePopup() }
 
-        // Set up listener for navigation menu items (e.g., Logout)
+        // Set up navigation menu
         navigationView.setNavigationItemSelectedListener { menuItem ->
             when (menuItem.itemId) {
+                R.id.nav_home -> {
+                    // Already in home
+                    drawerLayout.closeDrawer(GravityCompat.START)
+                    true
+                }
+                R.id.nav_profile -> {
+                    startActivity(Intent(this, DashboardActivity::class.java))
+                    drawerLayout.closeDrawer(GravityCompat.START)
+                    true
+                }
+                R.id.nav_streak_history -> {
+                    startActivity(Intent(this, StreakHistoryActivity::class.java))
+                    drawerLayout.closeDrawer(GravityCompat.START)
+                    true
+                }
                 R.id.nav_logout -> {
                     performLogout()
-                    drawerLayout.closeDrawer(GravityCompat.START)
                     true
                 }
                 else -> false
             }
         }
 
-        // Set up the Aptitude section buttons (in the main content)
-        btnSolveAptitude = findViewById(R.id.btn_solve_aptitude)
-        btnDailyChallenge = findViewById(R.id.btn_daily_challenge)
-        btnPlayTango = findViewById(R.id.btn_play_tango)
-
         btnSolveAptitude.setOnClickListener {
             startActivity(Intent(this, AptitudeTopicsActivity::class.java))
         }
+
         btnDailyChallenge.setOnClickListener {
             startActivity(Intent(this, DailyChallengeActivity::class.java))
         }
+
         btnPlayTango.setOnClickListener {
-            startActivity(Intent(this,TangoGameActivity::class.java))
+            startActivity(Intent(this, TangoGameActivity::class.java))
         }
+
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            insets
+        }
+    }
+
+    private fun scheduleDailyNotification() {
+        val dailyRequest = PeriodicWorkRequestBuilder<NotificationWorker>(1, TimeUnit.DAYS)
+            .setInitialDelay(15, TimeUnit.SECONDS)
+            .build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "daily_notification",
+            ExistingPeriodicWorkPolicy.KEEP,
+            dailyRequest
+        )
     }
 
     private fun showEditNamePopup() {
-        val builder = AlertDialog.Builder(this)
-        builder.setTitle("Enter your name")
+        val input = EditText(this).apply { hint = "Your name" }
 
-        // Create an EditText for user input
-        val input = EditText(this)
-        input.hint = "Your name"
-        builder.setView(input)
-
-        builder.setPositiveButton("OK") { dialog, _ ->
-            val name = input.text.toString().trim()
-            if (name.isNotEmpty()) {
-                tvGreeting.text = "Hi $name"
-                saveUserNameToFirestore(name)
-                Toast.makeText(this, "Name updated", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this, "Name cannot be empty", Toast.LENGTH_SHORT).show()
+        AlertDialog.Builder(this)
+            .setTitle("Enter your name")
+            .setView(input)
+            .setPositiveButton("OK") { dialog, _ ->
+                val name = input.text.toString().trim()
+                if (name.isNotEmpty()) {
+                    tvGreeting.text = "Hi $name"
+                    saveUserNameToFirestore(name)
+                } else {
+                    Toast.makeText(this, "Name cannot be empty", Toast.LENGTH_SHORT).show()
+                }
+                dialog.dismiss()
             }
-            dialog.dismiss()
-        }
-        builder.setNegativeButton("Cancel") { dialog, _ -> dialog.cancel() }
-        builder.create().show()
+            .setNegativeButton("Cancel") { dialog, _ -> dialog.cancel() }
+            .show()
     }
 
     private fun saveUserNameToFirestore(name: String) {
-        val userId = auth.currentUser?.uid
-        if (userId != null) {
-            val userRef = firestore.collection("users").document(userId)
-            val userData = hashMapOf("username" to name)
-
-            // Merge with existing data (allows adding fields later)
-            userRef.set(userData, SetOptions.merge())
-                .addOnSuccessListener { /* Successfully saved name */ }
+        auth.currentUser?.uid?.let { userId ->
+            firestore.collection("users").document(userId)
+                .set(mapOf("username" to name), SetOptions.merge())
                 .addOnFailureListener { e ->
                     Toast.makeText(this, "Failed to update name: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
-        } else {
-            Toast.makeText(this, "User not authenticated", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun loadUserName() {
-        val userId = auth.currentUser?.uid
-        if (userId != null) {
-            val userRef = firestore.collection("users").document(userId)
-
-            // First, try to get data from cache
-            userRef.get(Source.CACHE)
+        auth.currentUser?.uid?.let { userId ->
+            firestore.collection("users").document(userId).get()
                 .addOnSuccessListener { document ->
-                    if (document != null && document.exists()) {
-                        val name = document.getString("username")
-                        if (!name.isNullOrEmpty()) {
-                            tvGreeting.text = "Hi $name"
-                        }
-                    }
+                    document.getString("username")?.let { tvGreeting.text = "Hi $it" }
                 }
-                .addOnFailureListener {
-                    // If cache fails, fetch from server
-                    userRef.get()
-                        .addOnSuccessListener { document ->
-                            if (document != null && document.exists()) {
-                                val name = document.getString("username")
-                                if (!name.isNullOrEmpty()) {
-                                    tvGreeting.text = "Hi $name"
-                                }
-                            }
-                        }
-                        .addOnFailureListener { e ->
-                            Toast.makeText(this, "Error loading name: ${e.message}", Toast.LENGTH_SHORT).show()
-                        }
-                }
+        }
+    }
+    private fun checkForBadges() {
+        auth.currentUser?.uid?.let { userId ->
+            firestore.collection("users").document(userId).get()
+                .addOnSuccessListener { doc ->
+                    val totalCompleted = doc.getLong("totalChallengesCompleted")?.toInt() ?: 0
+                    val currentStreak = doc.getLong("currentStreak")?.toInt() ?: 0
+                    val correctAnswersInRow = doc.getLong("correctAnswersInRow")?.toInt() ?: 0
+                    val earnedBadges = doc.get("badges") as? List<String> ?: emptyList()
 
-            // Real-time updates
-            userRef.addSnapshotListener { document, error ->
-                if (error != null) {
-                    Toast.makeText(this, "Error: ${error.message}", Toast.LENGTH_SHORT).show()
-                    return@addSnapshotListener
-                }
-                if (document != null && document.exists()) {
-                    val name = document.getString("username")
-                    if (!name.isNullOrEmpty()) {
-                        tvGreeting.text = "Hi $name"
+                    val userStats = UserStats(
+                        totalChallengesCompleted = totalCompleted,
+                        streak = currentStreak,
+                        correctAnswersInRow = correctAnswersInRow
+                    )
+
+                    BadgeManager.checkAndAwardBadges(userStats, earnedBadges.toSet()) { badge ->
+                        // Award new badge
+                        Toast.makeText(this, "🎉 New badge earned: ${badge.displayName}", Toast.LENGTH_LONG).show()
+
+                        // Save to Firestore
+                        val updatedBadges = earnedBadges.toMutableList().apply {
+                            add(badge.key)
+                        }
+                        firestore.collection("users").document(userId)
+                            .update("badges", updatedBadges)
                     }
                 }
-            }
         }
     }
 
+
     private fun performLogout() {
         auth.signOut()
-        val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
-        prefs.edit().clear().apply()
-        val intent = Intent(this, LoginActivity::class.java)
-        startActivity(intent)
-        finish() // Prevent back navigation
+        getSharedPreferences("app_prefs", MODE_PRIVATE).edit().clear().apply()
+        startActivity(Intent(this, LoginActivity::class.java))
+        finish()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(streakReceiver)
     }
 }

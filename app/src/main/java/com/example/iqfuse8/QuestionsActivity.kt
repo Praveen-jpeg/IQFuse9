@@ -11,8 +11,8 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.iqfuse8.adapter.QuestionsAdapter
 import com.example.iqfuse8.model.Question
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.ktx.Firebase
 import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
 
 class QuestionsActivity : AppCompatActivity() {
 
@@ -79,9 +79,9 @@ class QuestionsActivity : AppCompatActivity() {
 
                     if (document.exists()) {
                         val questionList = document.get("questions") as? List<Map<String, Any>>
-                        Log.d("QuestionsActivity", "Number of Questions ${questionList?.size}")
+                        Log.d("QuestionsActivity", "Number of Questions: ${questionList?.size}")
 
-                        if (questionList != null && questionList.isNotEmpty()) {
+                        if (!questionList.isNullOrEmpty()) {
                             questionsList.clear()
                             questionList.forEach { questionData ->
                                 val questionText = questionData["question"] as? String ?: ""
@@ -92,6 +92,7 @@ class QuestionsActivity : AppCompatActivity() {
                                 questionsList.add(Question(questionText, optionsList, answer, explanation))
                             }
 
+                            // Shuffle questions if desired
                             questionsList.shuffle()
                             adapter = QuestionsAdapter(questionsList)
                             recyclerView.adapter = adapter
@@ -109,5 +110,4 @@ class QuestionsActivity : AppCompatActivity() {
                 }
         }
     }
-
 }
