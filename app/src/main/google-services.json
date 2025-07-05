@@ -7,7 +7,7 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:257285640585:android:ecad235fc5f154ab615158",
+        "mobilesdk_app_id": "",
         "android_client_info": {
           "package_name": "com.example.iqfuse8"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDTx6gcl7jeCsinsPbUrSGNHPkSpeYlxT4"
+          "current_key": "my api key"
         }
       ],
       "services": {
