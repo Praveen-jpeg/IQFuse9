@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Leaderboard theme colors for dark mode -->
+    <color name="leaderboard_background_start">#1E2430</color>
+    <color name="leaderboard_background_end">#121212</color>
+    <color name="leaderboard_card_background">#2C2C2C</color>
+    <color name="leaderboard_text_primary">#E0E0E0</color>
+    <color name="leaderboard_text_secondary">#B0B0B0</color>
+    
+    <!-- Keep medal colors the same in both themes -->
+</resources> 
