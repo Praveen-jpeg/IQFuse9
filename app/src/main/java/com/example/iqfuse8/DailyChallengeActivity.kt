@@ -179,7 +179,7 @@ class DailyChallengeActivity : AppCompatActivity() {
     private fun checkAnswer(selected: String) {
         showAnswer(selected)
         val isAnswerCorrect = selected == correctAnswer
-        
+
         if (isAnswerCorrect) {
             increaseStreak()
         } else {
@@ -190,7 +190,7 @@ class DailyChallengeActivity : AppCompatActivity() {
         val userId = FirebaseAuth.getInstance().currentUser?.uid
         if (userId != null) {
             UserStatsManager.updateUserStats(userId, isAnswerCorrect)
-            
+
             // Check for badges after updating stats
             checkForBadges()
         }
@@ -266,15 +266,15 @@ class DailyChallengeActivity : AppCompatActivity() {
     private fun increaseStreak() {
         val userId = auth.currentUser?.uid ?: return
         val userRef = firestore.collection("users").document(userId)
-        
+
         firestore.runTransaction { transaction ->
             val snapshot = transaction.get(userRef)
             val currentStreak = snapshot.getLong("streak")?.toInt() ?: 0
             val newStreak = currentStreak + 1
-            
+
             // Update streak
             transaction.update(userRef, "streak", newStreak)
-            
+
             // Record streak history
             val historyRef = userRef.collection("streakHistory").document()
             transaction.set(historyRef, mapOf(
@@ -282,7 +282,7 @@ class DailyChallengeActivity : AppCompatActivity() {
                 "streak" to newStreak,
                 "reason" to "correct"
             ))
-            
+
             // Check for milestone
             if (newStreak % 5 == 0) {
                 val milestoneRef = userRef.collection("streakHistory").document()
@@ -293,7 +293,7 @@ class DailyChallengeActivity : AppCompatActivity() {
                 ))
                 showMilestoneNotification(newStreak)
             }
-            
+
             Pair(currentStreak, newStreak)
         }.addOnSuccessListener { (oldStreak, newStreak) ->
             updateStreakDisplay(newStreak)
@@ -306,11 +306,11 @@ class DailyChallengeActivity : AppCompatActivity() {
     private fun resetStreak() {
         val userId = auth.currentUser?.uid ?: return
         val userRef = firestore.collection("users").document(userId)
-        
+
         firestore.runTransaction { transaction ->
             val snapshot = transaction.get(userRef)
             val currentStreak = snapshot.getLong("streak")?.toInt() ?: 0
-            
+
             // Record streak history before reset
             val historyRef = userRef.collection("streakHistory").document()
             transaction.set(historyRef, mapOf(
@@ -318,7 +318,7 @@ class DailyChallengeActivity : AppCompatActivity() {
                 "streak" to currentStreak,
                 "reason" to "wrong"
             ))
-            
+
             // Reset streak
             transaction.update(userRef, "streak", 0)
             currentStreak
@@ -333,7 +333,7 @@ class DailyChallengeActivity : AppCompatActivity() {
     private fun showMilestoneNotification(streak: Int) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val channelId = "streak_milestones"
-        
+
         // Create notification channel if needed
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -343,7 +343,7 @@ class DailyChallengeActivity : AppCompatActivity() {
             )
             notificationManager.createNotificationChannel(channel)
         }
-        
+
         val notification = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("Streak Milestone!")
@@ -351,7 +351,7 @@ class DailyChallengeActivity : AppCompatActivity() {
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .build()
-        
+
         notificationManager.notify(streak, notification)
     }
 
@@ -372,10 +372,10 @@ class DailyChallengeActivity : AppCompatActivity() {
                 val format = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                 val lastDate = format.parse(lastPlayedDate)
                 val currentDate = format.parse(today)
-                
+
                 if (lastDate != null && currentDate != null) {
                     val diffInDays = TimeUnit.MILLISECONDS.toDays(currentDate.time - lastDate.time)
-                    
+
                     // Only reset streak if more than one day has passed
                     if (diffInDays > 1) {
                         userRef.update(

@@ -16,6 +16,7 @@ class BadgeAdapter(private val badges: List<Badge>) :
         val badgeIcon: ImageView = itemView.findViewById(R.id.badgeIcon)
         val badgeName: TextView = itemView.findViewById(R.id.badgeTitle)
         val badgeDescription: TextView = itemView.findViewById(R.id.badgeDescription)
+        val badgeLockStatus: ImageView = itemView.findViewById(R.id.badgeLockStatus)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): BadgeViewHolder {
@@ -29,38 +30,40 @@ class BadgeAdapter(private val badges: List<Badge>) :
         val badge = badges[position]
         val context = holder.itemView.context
 
-        // Check if any badges are earned
-        val hasAnyEarnedBadges = badges.any { it.earned }
-
-        if (!hasAnyEarnedBadges) {
-            // If no badges are earned, show locked icon for all badges
-            holder.badgeIcon.setImageResource(R.drawable.ic_locked)
-            holder.badgeIcon.alpha = 0.3f
-        } else {
-            // If some badges are earned, show appropriate icons
-            val resId = when (badge.type) {
-                BadgeType.FIRST_WIN -> R.drawable.ic_firstwin
-                BadgeType.CENTURY_SOLVER -> R.drawable.ic_100
-                BadgeType.STREAK_ROOKIE -> R.drawable.ic_3
-                BadgeType.CONSISTENCY_STAR -> R.drawable.ic_7
-                BadgeType.DEDICATION_CHAMP -> R.drawable.ic_15
-                BadgeType.MASTER_STREAKER -> R.drawable.ic_30
-                BadgeType.UNBREAKABLE -> R.drawable.ic_100
-                BadgeType.SHARP_SHOOTER -> R.drawable.ic_5
-                BadgeType.FLAWLESS_WEEK -> R.drawable.ic_seven
-                BadgeType.STREAK_SAVIOR -> R.drawable.ic_streaksavior
-                BadgeType.COMEBACK_KING -> R.drawable.ic_comeback
-            }
-
-            // Set the badge image
-            holder.badgeIcon.setImageResource(if (badge.earned) resId else R.drawable.ic_locked)
-            holder.badgeIcon.alpha = if (badge.earned) 1.0f else 0.3f
+        // Get icon resource based on badge type
+        val resId = when (badge.type) {
+            BadgeType.FIRST_WIN -> R.drawable.ic_firstwin
+            BadgeType.CENTURY_SOLVER -> R.drawable.ic_100
+            BadgeType.STREAK_ROOKIE -> R.drawable.ic_3
+            BadgeType.CONSISTENCY_STAR -> R.drawable.ic_7
+            BadgeType.DEDICATION_CHAMP -> R.drawable.ic_15
+            BadgeType.MASTER_STREAKER -> R.drawable.ic_30
+            BadgeType.UNBREAKABLE -> R.drawable.ic_100
+            BadgeType.SHARP_SHOOTER -> R.drawable.ic_5
+            BadgeType.FLAWLESS_WEEK -> R.drawable.ic_seven
+            BadgeType.STREAK_SAVIOR -> R.drawable.ic_streaksavior
+            BadgeType.COMEBACK_KING -> R.drawable.ic_comeback
         }
+
+        // Set the badge image (always show the badge icon, but dim it if not earned)
+        holder.badgeIcon.setImageResource(resId)
+        holder.badgeIcon.alpha = if (badge.earned) 1.0f else 0.5f
+
+        // Set the lock status icon visibility
+        holder.badgeLockStatus.visibility = if (badge.earned) View.GONE else View.VISIBLE
 
         // Set the badge name and description
         holder.badgeName.text = badge.type.displayName
         holder.badgeDescription.text = badge.type.description
-        holder.badgeDescription.visibility = View.VISIBLE
+        
+        // Add a visual indicator that the badge is earned
+        if (badge.earned) {
+            holder.itemView.setBackgroundResource(android.R.color.transparent)
+            holder.badgeName.setTextColor(context.getColor(android.R.color.holo_green_dark))
+        } else {
+            holder.itemView.setBackgroundResource(android.R.color.transparent)
+            holder.badgeName.setTextColor(context.getColor(android.R.color.darker_gray))
+        }
     }
 
     override fun getItemCount(): Int = badges.size

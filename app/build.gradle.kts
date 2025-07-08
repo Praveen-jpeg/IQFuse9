@@ -60,6 +60,7 @@ dependencies {
 
     // CardView dependency
     implementation("androidx.cardview:cardview:1.0.0")
+    implementation(libs.androidx.swiperefreshlayout)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -1,6 +1,8 @@
 package com.example.iqfuse8
 
+import android.content.Intent
 import android.os.Bundle
+import android.view.MenuItem
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -14,7 +16,6 @@ class DashboardActivity : AppCompatActivity() {
 
     private lateinit var tvUserName: TextView
     private lateinit var tvDailyChallengeStreak: TextView
-    private lateinit var tvTangoGameStreak: TextView
     private lateinit var tvLeaderboard: TextView
     private lateinit var rvBadges: RecyclerView
 
@@ -25,10 +26,13 @@ class DashboardActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_dashboard)
 
+        // Enable back button in action bar
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        supportActionBar?.title = "Player Dashboard"
+
         // Bind UI elements
         tvUserName = findViewById(R.id.tvUserName)
         tvDailyChallengeStreak = findViewById(R.id.tvDailyChallengeStreak)
-        tvTangoGameStreak = findViewById(R.id.tvTangoGameStreak)
         tvLeaderboard = findViewById(R.id.tvLeaderboard)
         rvBadges = findViewById(R.id.rvBadges)
 
@@ -39,13 +43,23 @@ class DashboardActivity : AppCompatActivity() {
         loadUserDetails()
 
         // Set click listeners
-        tvTangoGameStreak.setOnClickListener {
-            Toast.makeText(this, "Coming Soon", Toast.LENGTH_SHORT).show()
-        }
-
         tvLeaderboard.setOnClickListener {
-            Toast.makeText(this, "Coming Soon", Toast.LENGTH_SHORT).show()
+            startActivity(Intent(this, LeaderboardActivity::class.java))
         }
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        if (item.itemId == android.R.id.home) {
+            finish()
+            return true
+        }
+        return super.onOptionsItemSelected(item)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Refresh data when coming back to this screen
+        loadUserDetails()
     }
 
     private fun loadUserDetails() {
@@ -54,14 +68,15 @@ class DashboardActivity : AppCompatActivity() {
             firestore.collection("users").document(it).get()
                 .addOnSuccessListener { document ->
                     if (document.exists()) {
-                        val name = document.getString("username") ?: "User"
+                        // Get basic user info
+                        val name = document.getString("username") ?: "Player"
+                        
+                        // Get streak info with fallbacks to 0
                         val dailyChallengeStreak = document.getLong("streak") ?: 0
-                        val tangoGameStreak = document.getLong("tangoGameStreak") ?: 0
-
+                        
                         // Set user details to the UI
                         tvUserName.text = "Name: $name"
-                        tvDailyChallengeStreak.text = "Daily Challenge Streak: $dailyChallengeStreak"
-                        tvTangoGameStreak.text = "Tango Game Streak: $tangoGameStreak"
+                        tvDailyChallengeStreak.text = "Daily Challenge Streak: $dailyChallengeStreak 🔥"
 
                         // Load badges for the user
                         loadUserBadges(it)

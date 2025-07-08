@@ -19,10 +19,16 @@
             android:name=".BadgeGridActivity"
             android:exported="false" />
         <activity
+            android:name=".LeaderboardActivity"
+            android:exported="false" />
+        <activity
             android:name=".DashboardActivity"
             android:exported="false" />
         <activity
             android:name=".TangoGameActivity"
+            android:exported="false" />
+        <activity
+            android:name=".TangoGameActivityNew"
             android:exported="false" />
         <activity
             android:name=".DailyChallengeActivity"

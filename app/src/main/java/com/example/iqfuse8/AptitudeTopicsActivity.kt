@@ -11,7 +11,7 @@ class AptitudeTopicsActivity : AppCompatActivity() {
         setContentView(R.layout.activity_aptitude_topics)
 
         // Get references to each topic button
-        val btnNumberSystem = findViewById<Button>(R.id.btn_number_system)
+        val btnNumberSystem = findViewById<Button>(R.id. btn_number_system)
         val btnGcfLcm = findViewById<Button>(R.id.btn_gcf_lcm)
         val btnDecimalFractions = findViewById<Button>(R.id.btn_decimal_fractions)
         val btnSimplification = findViewById<Button>(R.id.btn_simplification)

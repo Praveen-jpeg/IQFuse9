@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.cardview.widget.CardView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.GravityCompat
@@ -32,10 +33,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvGreeting: TextView
     private lateinit var tvEditName: TextView
     private lateinit var tvStreak: TextView
+    private lateinit var tvAppGreeting: TextView
 
-    private lateinit var btnSolveAptitude: Button
-    private lateinit var btnDailyChallenge: Button
-    private lateinit var btnPlayTango: Button
+    private lateinit var cardAptitude: CardView
+    private lateinit var cardDailyChallenge: CardView
+    private lateinit var cardTango: CardView
 
     private lateinit var firestore: FirebaseFirestore
     private lateinit var auth: FirebaseAuth
@@ -53,8 +55,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        FirebaseApp.initializeApp(this)
+        // Initialize Firebase using the centralized manager
+        FirebaseManager.initialize(applicationContext)
         setContentView(R.layout.activity_main)
+        
+        // Initialize Tango puzzles in the background to ensure availability
+        FirebaseManager.initializeTangoPuzzles()
 
         requestNotificationPermission()
         initFirebase()
@@ -97,10 +103,12 @@ class MainActivity : AppCompatActivity() {
 
         tvGreeting = headerView.findViewById(R.id.tvGreeting)
         tvEditName = headerView.findViewById(R.id.tvEditName)
+        tvAppGreeting = findViewById(R.id.tvGreeting)
 
-        btnSolveAptitude = findViewById(R.id.btn_solve_aptitude)
-        btnDailyChallenge = findViewById(R.id.btn_daily_challenge)
-        btnPlayTango = findViewById(R.id.btn_play_tango)
+        // Initialize card views
+        cardAptitude = findViewById(R.id.card_aptitude)
+        cardDailyChallenge = findViewById(R.id.card_daily_challenge)
+        cardTango = findViewById(R.id.card_tango)
 
         findViewById<ImageView>(R.id.hamburgerIcon).setOnClickListener {
             drawerLayout.openDrawer(GravityCompat.START)
@@ -134,16 +142,17 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        btnSolveAptitude.setOnClickListener {
+        // Set click listeners for cards
+        cardAptitude.setOnClickListener {
             startActivity(Intent(this, AptitudeTopicsActivity::class.java))
         }
 
-        btnDailyChallenge.setOnClickListener {
+        cardDailyChallenge.setOnClickListener {
             startActivity(Intent(this, DailyChallengeActivity::class.java))
         }
-
-        btnPlayTango.setOnClickListener {
-            startActivity(Intent(this, TangoGameActivity::class.java))
+        
+        cardTango.setOnClickListener {
+            startActivity(Intent(this, TangoGameActivityNew::class.java))
         }
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
@@ -199,10 +208,15 @@ class MainActivity : AppCompatActivity() {
         auth.currentUser?.uid?.let { userId ->
             firestore.collection("users").document(userId).get()
                 .addOnSuccessListener { document ->
-                    document.getString("username")?.let { tvGreeting.text = "Hi $it" }
+                    val username = document.getString("username")
+                    username?.let { 
+                        tvGreeting.text = "Hi $it"
+                        tvAppGreeting.text = "Welcome, $it!"
+                    }
                 }
         }
     }
+
     private fun checkForBadges() {
         auth.currentUser?.uid?.let { userId ->
             firestore.collection("users").document(userId).get()
